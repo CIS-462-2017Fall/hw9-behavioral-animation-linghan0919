@@ -8,8 +8,10 @@
 #include "GL/glew.h"
 #include "GL/glut.h"
 
-
-
+#ifndef RAD
+#define PI 3.14159265358979f
+#define RAD (PI / 180.0f)
+#endif
 #define Truncate(a, b, c) (a = max<double>(min<double>(a,c),b))
 
 double BehaviorController::gMaxSpeed = 1000.0; 
@@ -17,9 +19,9 @@ double BehaviorController::gMaxAngularSpeed = 200.0;
 double BehaviorController::gMaxForce = 2000.0;  
 double BehaviorController::gMaxTorque = 2000.0;
 double BehaviorController::gKNeighborhood = 500.0;   
-double BehaviorController::gOriKv = 1.0;    
-double BehaviorController::gOriKp = 1.0;  
-double BehaviorController::gVelKv = 1.0;    
+double BehaviorController::gOriKv = 32.0;    
+double BehaviorController::gOriKp = 256.0;  
+double BehaviorController::gVelKv = 10.0;    
 double BehaviorController::gAgentRadius = 80.0;  
 double BehaviorController::gMass = 1;
 double BehaviorController::gInertia = 1;
@@ -101,14 +103,14 @@ void BehaviorController::reset()
 {
 	vec3 startPos;
 	startPos[0] = ((double)rand()) / RAND_MAX;
-	startPos[1] =  ((double)rand()) / RAND_MAX, 
-	startPos[2] = ((double)rand()) / RAND_MAX;
+	startPos[1] = ((double)rand()) / RAND_MAX,
+		startPos[2] = ((double)rand()) / RAND_MAX;
 	startPos = startPos - vec3(0.5, 0.5, 0.5);
 
 	startPos[1] = 0; // set equal to zero for 2D case (assume y is up)
 
 	m_Guide.setLocalTranslation(startPos * 500.0);
-	
+
 	for (int i = 0; i < m_stateDim; i++)
 	{
 		m_state[i] = 0.0;
@@ -119,6 +121,8 @@ void BehaviorController::reset()
 	m_torque = 0.0;
 	m_thetad = 0.0;
 	m_vd = 0.0;
+
+	
 }
 
 ///////////////////////////////////////////////////
@@ -152,7 +156,7 @@ void BehaviorController::control(double deltaT)
 
 	if (mpActiveBehavior)
 	{ 
-		m_Vdesired = mpActiveBehavior->calcDesiredVel(this);
+		m_Vdesired = mpActiveBehavior->calcDesiredVel(this); // world
 		m_Vdesired[1] = 0;
 
 		//  force and torque inputs are computed from vd and thetad as follows:
@@ -161,18 +165,22 @@ void BehaviorController::control(double deltaT)
 		//  where the values of the gains Kv and Kp are different for each controller
 
 		// TODO: insert your code here to compute m_force and m_torque
+		
+		m_vd = m_Vdesired.Length(); 
+		m_force[_Z] = gMass * gVelKv * (m_vd - m_state[VEL][_Z]);
+		if (m_force[_Z] > gMaxForce) m_force[_Z] = gMaxForce;
+		if (m_force[_Z] < -gMaxForce) m_force[_Z] = -gMaxForce;
+		
+		m_thetad = atan2(m_Vdesired[_Z], m_Vdesired[_X]);
+		double delta_theta = m_thetad - m_state[ORI][_Y];
+		ClampAngle(delta_theta);
+		m_torque[_Y] = gInertia * (gOriKp * delta_theta - gOriKv * m_stateDot[ORI][_Y]);
+		if (m_torque[_Y] > gMaxTorque) m_torque[_Y] = gMaxTorque;
+		if (m_torque[_Y] < -gMaxTorque) m_torque[_Y] = -gMaxTorque;
 
-
-
-
-
-
-
-
-
-
-
-
+		//std::cout << "m_vd: " << m_vd << std::endl;
+		//std::cout << "m_thetad: " << m_thetad << std::endl;
+		// Linghan 2017-12-03
 
 		// when agent desired agent velocity and actual velocity < 2.0 then stop moving
 		if (m_vd < 2.0 &&  m_state[VEL][_Z] < 2.0)
@@ -195,7 +203,7 @@ void BehaviorController::control(double deltaT)
 void BehaviorController::act(double deltaT)
 {
 	computeDynamics(m_state, m_controlInput, m_stateDot, deltaT);
-	
+
 	int EULER = 0;
 	int RK2 = 1;
 	updateState(deltaT, EULER);
@@ -211,11 +219,26 @@ void BehaviorController::computeDynamics(vector<vec3>& state, vector<vec3>& cont
 
 	// Compute the stateDot vector given the values of the current state vector and control input vector
 	// TODO: add your code here
+	stateDot.clear();
 
+	// m_stateDot[0] = m_Vel0
+	double vB_z = state[VEL][_Z];
+	vec3 v0 = vec3(cos(state[ORI][_Y]) * vB_z, 0.0, sin(state[ORI][_Y]) * vB_z);
+	stateDot.push_back(v0); 
 
+	// m_stateDot[1] = m_AVelB
+	vec3 AVelB = state[AVEL];
+	stateDot.push_back(AVelB); // both stateDot[1] and state[3] represent m_AVelB
 
+	// m_stateDot[2] = body acceleration
+	vec3 bodyAcc = force / gMass;
+	stateDot.push_back(bodyAcc);
 
-
+	// m_stateDot[3] = body angular acceleration
+	vec3 bodyAngularAcc = torque / gInertia; // [0, torque_y / I_yy, 0]
+	stateDot.push_back(bodyAngularAcc);
+	
+	// Linghan 2017-12-03
 }
 
 void BehaviorController::updateState(float deltaT, int integratorType)
@@ -224,13 +247,16 @@ void BehaviorController::updateState(float deltaT, int integratorType)
 	//  this should be similar to what you implemented in the particle system assignment
 
 	// TODO: add your code here
-	
-
-
-
-
-
-
+	if (integratorType == 0) { // Euler
+		m_state[POS] = m_state[POS] + deltaT * m_stateDot[0]; // p(t_k+1) = p(t_k) + deltaT * v(t_k) in world
+		m_state[ORI] = m_state[ORI] + deltaT * m_stateDot[1]; // theta(t_k+1) = theta(t_k) + deltaT * angularVel(t_k). same in world or body frame
+		m_state[VEL] = m_state[VEL] + deltaT * m_stateDot[2]; // v(t_k+1) = v(t_k) + deltaT * a(t_k) in B
+		m_state[AVEL] = m_state[AVEL] + deltaT * m_stateDot[3]; // av(t_k+1) = av(t_k) + deltaT * aa(t_k) in B
+	}
+	else { // RK2
+		
+	}
+	// Linghan 2017-12-03
 
 	//  given the new values in m_state, these are the new component state values 
 	m_Pos0 = m_state[POS];
@@ -238,15 +264,31 @@ void BehaviorController::updateState(float deltaT, int integratorType)
 	m_VelB = m_state[VEL];
 	m_AVelB = m_state[AVEL];
 
-	//  Perform validation check to make sure all values are within MAX values
+	// Perform validation check to make sure all values are within MAX values
 	// TODO: add your code here
+	m_Vel0 = m_stateDot[0];
 
+	if (m_VelB[_Z] > gMaxSpeed) {
+		m_VelB[_Z] = gMaxSpeed;
+		m_state[VEL][_Z] = gMaxSpeed;
+	}
+	if (m_VelB[_Z] < -gMaxSpeed) {
+		m_VelB[_Z] = -gMaxSpeed;
+		m_state[VEL][_Z] = -gMaxSpeed;
+	}
 
+	if (m_AVelB[_Y] > gMaxAngularSpeed) {
+		m_AVelB[_Y] = gMaxAngularSpeed;
+		m_state[AVEL][_Y] = gMaxAngularSpeed;
+	}
+	if (m_AVelB[_Y] < -gMaxAngularSpeed) {
+		m_AVelB[_Y] = -gMaxAngularSpeed;
+		m_state[AVEL][_Y] = -gMaxAngularSpeed;
+	}
+	ClampAngle(m_Euler[_Y]);
+	ClampAngle(m_state[ORI][_Y]);
 
-
-
-
-
+	// Linghan 2017-12-03
 
 	// update the guide orientation
 	// compute direction from nonzero velocity vector
@@ -254,8 +296,8 @@ void BehaviorController::updateState(float deltaT, int integratorType)
 	if (m_Vel0.Length() < 1.0)
 	{
 		dir = m_lastVel0;
-		dir.Normalize();;
-		m_state[ORI] = atan2(dir[_Z], dir[_X]);
+		dir.Normalize();
+		m_state[ORI] = atan2(dir[_Z], dir[_X]); 
 	}
 	else
 	{
@@ -270,7 +312,6 @@ void BehaviorController::updateState(float deltaT, int integratorType)
 	mat3 rot(right, up, dir);
 	m_Guide.setLocalRotation(rot.Transpose());
 	m_Guide.setLocalTranslation(m_Guide.getLocalTranslation() + m_Vel0*deltaT);
-
 }
 
 
@@ -279,11 +320,9 @@ void BehaviorController::setTarget(AJoint& target)
 	m_pBehaviorTarget = &target;
 	for (unsigned int i = 0; i < m_BehaviorList.size(); i++)
 	{
-		BehaviorType index = (BehaviorType) i;
+		BehaviorType index = (BehaviorType)i;
 		m_BehaviorList[index]->setTarget(m_pBehaviorTarget);
 	}
-
-
 
 }
 
@@ -304,7 +343,7 @@ void BehaviorController::display()
 { // helps with debugging behaviors.  red line is actual velocity vector, green line is desired velocity vector
 	
 	vec3 pos = getPosition();
-	double scale = 1.0;
+	double scale = 1.0; 
 	vec3 vel = scale* getVelocity();
 	double velMag = vel.Length();
 	vec3 dvel = scale* getDesiredVelocity();

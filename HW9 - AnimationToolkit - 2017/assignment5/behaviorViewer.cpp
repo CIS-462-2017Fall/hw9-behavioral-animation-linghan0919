@@ -83,7 +83,14 @@ void BehaviorViewer::initializeGui()
 	TwAddVarRW(m_TwBehaviorBar, "Debug", TW_TYPE_BOOLCPP, &m_DebugDraw, "");
 	TwAddButton(m_TwBehaviorBar, "Reset", onResetCb, this, "");
 
-	//TODO: Add your code here to create additional GUI Variables
+	// TODO: Add your code here to create additional GUI Variables
+	TwAddVarRW(m_TwBehaviorBar, "Mass", TW_TYPE_DOUBLE, &BehaviorController::gMass, "");
+	TwAddVarRW(m_TwBehaviorBar, "Max force", TW_TYPE_DOUBLE, &BehaviorController::gMaxForce, "");
+	TwAddVarRW(m_TwBehaviorBar, "Max torque", TW_TYPE_DOUBLE, &BehaviorController::gMaxTorque, "");
+	TwAddVarRW(m_TwBehaviorBar, "Vel Kv gain", TW_TYPE_DOUBLE, &BehaviorController::gVelKv, "");
+	TwAddVarRW(m_TwBehaviorBar, "Ori Kv gain", TW_TYPE_DOUBLE, &BehaviorController::gOriKv, "");
+	TwAddVarRW(m_TwBehaviorBar, "Ori Kp gain", TW_TYPE_DOUBLE, &BehaviorController::gOriKp, "");
+	// Linghan 2017-12-03
 }
 
 

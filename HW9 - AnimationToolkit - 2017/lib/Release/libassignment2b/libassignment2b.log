@@ -1,1 +1,6 @@
-﻿
+﻿  aActor.cpp
+  aBVHController.cpp
+  aJoint.cpp
+  aSkeleton.cpp
+  aTransform.cpp
+  libassignment2b.vcxproj -> F:\Study\CIS_562_CompAnimation\HW9\hw9-behavioral-animation-linghan0919\HW9 - AnimationToolkit - 2017\libsrc\animation\..\..\lib\libassignment2b.lib
