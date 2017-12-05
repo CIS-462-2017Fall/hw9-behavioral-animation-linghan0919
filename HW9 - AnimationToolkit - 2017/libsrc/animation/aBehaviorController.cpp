@@ -19,17 +19,17 @@ double BehaviorController::gMaxAngularSpeed = 200.0;
 double BehaviorController::gMaxForce = 2000.0;  
 double BehaviorController::gMaxTorque = 2000.0;
 double BehaviorController::gKNeighborhood = 500.0;   
-double BehaviorController::gOriKv = 32.0;    
-double BehaviorController::gOriKp = 256.0;  
-double BehaviorController::gVelKv = 10.0;    
+double BehaviorController::gOriKv = 32.0; // computed by Linghan   
+double BehaviorController::gOriKp = 256.0; // computed by Linghan 
+double BehaviorController::gVelKv = 10.0; // computed by Linghan 
 double BehaviorController::gAgentRadius = 80.0;  
 double BehaviorController::gMass = 1;
 double BehaviorController::gInertia = 1;
 double BehaviorController::KArrival = 1.0; 
 double BehaviorController::KDeparture = 12000.0;
-double BehaviorController::KNoise = 15.0;
-double BehaviorController::KWander = 80.0;   
-double BehaviorController::KAvoid = 600.0;  
+double BehaviorController::KNoise = 10.0; // change from 15 to 10, Linghan
+double BehaviorController::KWander = 20.0; // change from 80 to 20, Linghan
+double BehaviorController::KAvoid = 10000.0; // change from 600 to 10000, Linghan
 double BehaviorController::TAvoid = 1000.0;   
 double BehaviorController::KSeparation = 12000.0; 
 double BehaviorController::KAlignment = 1.0;  
@@ -173,7 +173,7 @@ void BehaviorController::control(double deltaT)
 		
 		m_thetad = atan2(m_Vdesired[_Z], m_Vdesired[_X]);
 		double delta_theta = m_thetad - m_state[ORI][_Y];
-		ClampAngle(delta_theta);
+		ClampAngle(delta_theta); // very important!!!
 		m_torque[_Y] = gInertia * (gOriKp * delta_theta - gOriKv * m_stateDot[ORI][_Y]);
 		if (m_torque[_Y] > gMaxTorque) m_torque[_Y] = gMaxTorque;
 		if (m_torque[_Y] < -gMaxTorque) m_torque[_Y] = -gMaxTorque;
@@ -219,26 +219,25 @@ void BehaviorController::computeDynamics(vector<vec3>& state, vector<vec3>& cont
 
 	// Compute the stateDot vector given the values of the current state vector and control input vector
 	// TODO: add your code here
-	stateDot.clear();
 
 	// m_stateDot[0] = m_Vel0
 	double vB_z = state[VEL][_Z];
 	vec3 v0 = vec3(cos(state[ORI][_Y]) * vB_z, 0.0, sin(state[ORI][_Y]) * vB_z);
-	stateDot.push_back(v0); 
+	stateDot[0] = v0; 
 
 	// m_stateDot[1] = m_AVelB
 	vec3 AVelB = state[AVEL];
-	stateDot.push_back(AVelB); // both stateDot[1] and state[3] represent m_AVelB
+	stateDot[1] = AVelB; // both stateDot[1] and state[3] represent m_AVelB
 
 	// m_stateDot[2] = body acceleration
 	vec3 bodyAcc = force / gMass;
-	stateDot.push_back(bodyAcc);
+	stateDot[2] = bodyAcc;
 
 	// m_stateDot[3] = body angular acceleration
 	vec3 bodyAngularAcc = torque / gInertia; // [0, torque_y / I_yy, 0]
-	stateDot.push_back(bodyAngularAcc);
+	stateDot[3] = bodyAngularAcc;
 	
-	// Linghan 2017-12-03
+	// Linghan 2017-12-04
 }
 
 void BehaviorController::updateState(float deltaT, int integratorType)
@@ -254,7 +253,20 @@ void BehaviorController::updateState(float deltaT, int integratorType)
 		m_state[AVEL] = m_state[AVEL] + deltaT * m_stateDot[3]; // av(t_k+1) = av(t_k) + deltaT * aa(t_k) in B
 	}
 	else { // RK2
-		
+		vector<vec3> m_state_pre;
+		m_state_pre.resize(m_stateDim);
+		m_state_pre[POS] = m_state[POS] + deltaT * m_stateDot[0]; 
+		m_state_pre[ORI] = m_state[ORI] + deltaT * m_stateDot[1]; 
+		m_state_pre[VEL] = m_state[VEL] + deltaT * m_stateDot[2]; 
+		m_state_pre[AVEL] = m_state[AVEL] + deltaT * m_stateDot[3];
+		vector<vec3> m_stateDot_pre;
+		m_stateDot_pre.resize(m_stateDim);
+		computeDynamics(m_state_pre, m_controlInput, m_stateDot_pre, deltaT);
+		m_state[POS] = m_state[POS] + (deltaT / 2) * (m_stateDot[0] + m_stateDot_pre[0]);
+		m_state[ORI] = m_state[ORI] + (deltaT / 2) * (m_stateDot[1] + m_stateDot_pre[1]);
+		m_state[VEL] = m_state[VEL] + (deltaT / 2) * (m_stateDot[2] + m_stateDot_pre[2]);
+		m_state[AVEL] = m_state[AVEL] + (deltaT / 2) * (m_stateDot[3] + m_stateDot_pre[3]);
+
 	}
 	// Linghan 2017-12-03
 
