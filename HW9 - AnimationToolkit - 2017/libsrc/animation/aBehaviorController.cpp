@@ -92,6 +92,8 @@ void BehaviorController::createBehaviors(vector<AActor>& agentList, vector<Obsta
 	m_BehaviorList[LEADER] = new Leader(m_pBehaviorTarget, m_AgentList);
 	m_BehaviorList[FLOCKING] = new Flocking(m_pBehaviorTarget, m_AgentList);
 	m_BehaviorList[AVOID] = new Avoid(m_pBehaviorTarget, m_ObstacleList);
+	m_BehaviorList[CHASING] = new Chasing(m_AgentList); // Linghan
+	m_BehaviorList[SNAKE] = new Snake(); // Linghan
 }
 
 BehaviorController::~BehaviorController()

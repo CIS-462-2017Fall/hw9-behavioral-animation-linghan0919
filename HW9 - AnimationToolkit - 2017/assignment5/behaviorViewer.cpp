@@ -69,10 +69,12 @@ void BehaviorViewer::initializeGui()
 		{ SEPARATION, "Separation" },
 		{ COHESION, "Cohesion" },
 		{ FLOCKING, "Flocking" },
-		{ LEADER, "Leader" }
+		{ LEADER, "Leader" },
+		{ CHASING, "Chasing" }, // Linghan 
+		{ SNAKE, "Snake" } // Linghan
 	};
 
-	m_TwBehaviorType = TwDefineEnum("BehaviorType", beTypeEV, 11);
+	m_TwBehaviorType = TwDefineEnum("BehaviorType", beTypeEV, 13); // change from 11 to 13
 	TwAddVarCB(m_TwBehaviorBar, "Behavior", m_TwBehaviorType, onSetBehaviorCb, onGetBehaviorCb, this, " ");
 	TwAddVarCB(m_TwBehaviorBar, "Num Agents", TW_TYPE_INT32, onSetNumCharactersCb, onGetNumCharactersCb, this, "");
 	TwAddVarCB(m_TwBehaviorBar, "Num Obstacles", TW_TYPE_INT32, onSetNumObstaclesCb, onGetNumObstaclesCb, this, "");

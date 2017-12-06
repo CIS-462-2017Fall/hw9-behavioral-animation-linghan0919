@@ -3,6 +3,7 @@ aBehaviors.cpp(250): warning C4018: '<': signed/unsigned mismatch
 aBehaviors.cpp(411): warning C4018: '<': signed/unsigned mismatch
 aBehaviors.cpp(468): warning C4018: '<': signed/unsigned mismatch
 aBehaviors.cpp(522): warning C4018: '<': signed/unsigned mismatch
+aBehaviors.cpp(679): warning C4018: '<': signed/unsigned mismatch
   libassignment5.vcxproj -> F:\Study\CIS_562_CompAnimation\HW9\hw9-behavioral-animation-linghan0919\HW9 - AnimationToolkit - 2017\libsrc\animation\..\..\lib\libassignment5.lib
   aActor.h
   aBehaviorController.h
